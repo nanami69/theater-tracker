@@ -10,27 +10,13 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type User struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
-func getUser(c echo.Context) error {
-	// id := c.Param("id")
-	// ダミーデータとしてユーザーを返す
-	user := &User{
-		ID:    1,
-		Name:  "John Doe",
-		Email: "john@example.com",
-	}
-	return c.JSON(http.StatusOK, user)
-}
-
 func registerCinema(c echo.Context) error {
 	// データベースの登録と緯度経度算出処理
 	var req struct {
-		Address string `json:"address"`
+		Name     string `json:"name"`
+		Address  string `json:"address"`
+		PhotoURL string `json:"photo_url"`
+		Comment  string `json:"comment"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return err
@@ -42,8 +28,10 @@ func registerCinema(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
+		"name": req.Name,
 		"lat": lat,
 		"lng": lng,
+		"comment": req.Comment,
 	})
 }
 
@@ -93,7 +81,6 @@ func main() {
 	// CORSの設定(デプロイ前に設定を見直す)
 	e.Use(middleware.CORS())
 	// ルーティングの設定
-	e.GET("/users/:id", getUser)
 	e.POST("/register-cinema", registerCinema)
 	// サーバーの起動
 	e.Logger.Fatal(e.Start(":8080"))
