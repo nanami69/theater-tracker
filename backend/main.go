@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/url"
 	"fmt"
+	"io/ioutil"
+	"encoding/base64"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -12,34 +14,68 @@ import (
 
 func registerCinema(c echo.Context) error {
 	// データベースの登録と緯度経度算出処理
-	var req struct {
-		Name     string `json:"name"`
-		Address  string `json:"address"`
-		PhotoURL string `json:"photo_url"`
-		Comment  string `json:"comment"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return err
-	}
+    var req struct {
+        Name     string `json:"name"`
+        Address  string `json:"address"`
+        Comment  string `json:"comment"`
+        FileData []byte `json:"photo"`
+    }
+	var fileBase64 = ""
 
-	lat, lng, err := getLatLng(req.Address)
+    // ファイルを受け取る
+    file, err := c.FormFile("photo")
+    if err != nil {
+        if err == http.ErrMissingFile {
+            // ファイルが送信されていない場合の処理
+        } else {
+            // その他のエラーが発生した場合の処理
+            return fmt.Errorf("resieve：%s", err.Error())
+        }
+    } else {
+        // ファイルが正常に受け取れた場合の処理
+        f, err := file.Open()
+        if err != nil {
+            return fmt.Errorf("not opne：%s", err.Error())
+        }
+        defer f.Close()
+
+        data, err := ioutil.ReadAll(f)
+        if err != nil {
+            return fmt.Errorf("read file：%s", err.Error())
+        }
+        // Base64エンコード
+    	fileBase64 = base64.StdEncoding.EncodeToString(data)
+        fmt.Println("files: uploaded")
+    }
+
+    // その他のリクエストデータを受け取る
+    if err := c.Bind(&req); err != nil {
+		fmt.Println("Bind")
+        return fmt.Errorf("bind：%s", err.Error())
+    }
+
+	lat, lng, err := getLatLng(c.FormValue("address"))
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"name": req.Name,
+	responseMap := map[string]string{
+		"name": c.FormValue("name"),
 		"lat": lat,
 		"lng": lng,
-		"comment": req.Comment,
-	})
+		"comment": c.FormValue("comment"),
+	}
+	
+	if fileBase64 != "" {
+		responseMap["photo"] = fileBase64
+	}
+	
+	return c.JSON(http.StatusOK, responseMap)
 }
 
 func getLatLng(address string) (string, string, error) {
     // APIに送信するリクエストを作成
     apiURL := "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + url.QueryEscape(address)
-    // values := make(url.Values)
-    // values.Set("q", address)
     req, err := http.NewRequest("GET", apiURL, nil)
     if err != nil {
         return "", "", err
