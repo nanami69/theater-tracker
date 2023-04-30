@@ -7,10 +7,57 @@ import (
 	"fmt"
 	"io/ioutil"
 	"encoding/base64"
+	"database/sql"
+    _ "github.com/go-sql-driver/mysql"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/spf13/viper"
 )
+
+type Config struct {
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	DBName   string `mapstructure:"dbname"`
+}
+
+func saveToDB(name string, address string, latitude string, longitude string, photo string) error {
+    // 設定ファイルのパスを指定する
+	viper.SetConfigFile("./config/config.yml")
+
+	// 設定ファイルを読み込む
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(fmt.Errorf("failed to read config file: %s", err))
+	}
+
+	// 設定ファイルの内容を構造体にマッピングする
+	var config Config
+	err = viper.Unmarshal(&config)
+	if err != nil {
+		panic(fmt.Errorf("failed to unmarshal config file: %s", err))
+	}
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", config.User, config.Password, config.Host, config.Port, config.DBName)
+
+    // DBに接続
+    db, err := sql.Open("mysql", dsn)
+    if err != nil {
+        return err
+    }
+    defer db.Close()
+
+    // INSERT文を作成して実行
+    query := "INSERT INTO theaters (name, address, latitude, longitude, photo) VALUES (?, ?, ?, ?, ?)"
+    _, err = db.Exec(query, name, address, latitude, longitude, photo)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
 
 func registerCinema(c echo.Context) error {
 	// データベースの登録と緯度経度算出処理
@@ -21,6 +68,7 @@ func registerCinema(c echo.Context) error {
         FileData []byte `json:"photo"`
     }
 	var fileBase64 = ""
+	var filename = ""
 
     // ファイルを受け取る
     file, err := c.FormFile("photo")
@@ -37,6 +85,7 @@ func registerCinema(c echo.Context) error {
         if err != nil {
             return fmt.Errorf("not opne：%s", err.Error())
         }
+		filename = file.Filename
         defer f.Close()
 
         data, err := ioutil.ReadAll(f)
@@ -58,6 +107,8 @@ func registerCinema(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
+	saveToDB(c.FormValue("name"), c.FormValue("address"), lat, lng, filename)
 
 	responseMap := map[string]string{
 		"name": c.FormValue("name"),
