@@ -1,5 +1,12 @@
 package geocoding
 
+import (
+	"net/http"
+	"fmt"
+    "encoding/json"
+    "net/url"
+)
+
 func GetLatLng(address string) (string, string, error) {
     // APIに送信するリクエストを作成
     apiURL := "https://msearch.gsi.go.jp/address-search/AddressSearch?q=" + url.QueryEscape(address)

@@ -1,4 +1,4 @@
-module github.com/nanami69/theater-tracker
+module github.com/nanami69/theater-tracker/backend
 
 go 1.20
 
