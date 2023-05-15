@@ -23,7 +23,7 @@ type Config struct {
 	DBName   string `mapstructure:"dbname"`
 }
 
-func saveToDB(name string, address string, latitude string, longitude string, photo string) error {
+func saveToDB(name string, address string, latitude string, longitude string, photo []byte) error {
     // 設定ファイルのパスを指定する
 	viper.SetConfigFile("./config/config.yml")
 
@@ -68,7 +68,7 @@ func registerCinema(c echo.Context) error {
         FileData []byte `json:"photo"`
     }
 	var fileBase64 = ""
-	var filename = ""
+	var blobData = []byte("")
 
     // ファイルを受け取る
     file, err := c.FormFile("photo")
@@ -85,7 +85,6 @@ func registerCinema(c echo.Context) error {
         if err != nil {
             return fmt.Errorf("not opne：%s", err.Error())
         }
-		filename = file.Filename
         defer f.Close()
 
         data, err := ioutil.ReadAll(f)
@@ -94,6 +93,7 @@ func registerCinema(c echo.Context) error {
         }
         // Base64エンコード
     	fileBase64 = base64.StdEncoding.EncodeToString(data)
+		blobData = []byte(fileBase64)
         fmt.Println("files: uploaded")
     }
 
@@ -108,7 +108,7 @@ func registerCinema(c echo.Context) error {
 		return err
 	}
 
-	saveToDB(c.FormValue("name"), c.FormValue("address"), lat, lng, filename)
+	saveToDB(c.FormValue("name"), c.FormValue("address"), lat, lng, blobData)
 
 	responseMap := map[string]string{
 		"name": c.FormValue("name"),
